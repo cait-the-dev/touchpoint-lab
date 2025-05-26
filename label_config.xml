@@ -1,0 +1,8 @@
+<View>
+  <Header value="Customer-vs-Brand classifier"/>
+  <Text name="text" value="$event_name"/>
+  <Choices name="cls" toName="text" choice="single" required="true">
+    <Choice value="CUSTOMER"/>
+    <Choice value="BRAND"/>
+  </Choices>
+</View>

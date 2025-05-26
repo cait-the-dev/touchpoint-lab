@@ -1,0 +1,59 @@
+event_name,label
+Active on Site,CUSTOMER
+Added Cart,CUSTOMER
+Added Email,CUSTOMER
+Added Order,CUSTOMER
+Added Product,CUSTOMER
+Added Quiz,CUSTOMER
+Black Crow Identified,BRAND
+Blotout Viewed Product Xyz,CUSTOMER
+Clicked Cart,CUSTOMER
+Clicked Email,CUSTOMER
+Clicked Order,CUSTOMER
+Clicked Product,CUSTOMER
+Clicked Quiz,CUSTOMER
+Clicked email link,CUSTOMER
+Clicked email to unsubscribe,CUSTOMER
+Email Delivered,BRAND
+Email Open,CUSTOMER
+Email Refunded,BRAND
+Email Sent,BRAND
+Email Shipped,BRAND
+Notification Delivered,BRAND
+Notification Refunded,BRAND
+Notification Sent,BRAND
+Notification Shipped,BRAND
+Octane: Quiz Completed: Find The Perfect Eye Shadow   .,CUSTOMER
+Opened Cart,CUSTOMER
+Opened Email,CUSTOMER
+Opened Order,CUSTOMER
+Opened Product,CUSTOMER
+Opened Quiz,CUSTOMER
+Order Delivered,BRAND
+Order Placed,CUSTOMER
+Order Refunded,BRAND
+Order Sent,BRAND
+Order Shipped,BRAND
+Placed Cart,CUSTOMER
+Placed Email,CUSTOMER
+Placed Order,CUSTOMER
+Placed Product,CUSTOMER
+Placed Quiz,CUSTOMER
+Push Delivered,BRAND
+Push Refunded,BRAND
+Push Sent,BRAND
+Push Shipped,BRAND
+SMS Delivered,BRAND
+SMS Sent,BRAND
+Sms Delivered,BRAND
+Sms Refunded,BRAND
+Sms Sent,BRAND
+Sms Shipped,BRAND
+Unsubscribed,CUSTOMER
+Viewed Cart,CUSTOMER
+Viewed Email,CUSTOMER
+Viewed Order,CUSTOMER
+Viewed Product,CUSTOMER
+Viewed Product XYZ,CUSTOMER
+Viewed Product.,CUSTOMER
+Viewed Quiz,CUSTOMER
