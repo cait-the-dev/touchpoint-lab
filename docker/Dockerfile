@@ -21,4 +21,4 @@ COPY notebooks/ notebooks/
 COPY scripts/ scripts/
 COPY tests/ tests/
 
-CMD ["pytest", "-q"]
+CMD ["uvicorn", "src.api_stub:app", "--host", "0.0.0.0", "--port", "8080"]

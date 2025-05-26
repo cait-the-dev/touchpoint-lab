@@ -1,9 +1,11 @@
 from pathlib import Path
+
 import pandas as pd
-from src.action_classifier import train, predict
+
+from src.action_classifier import predict, train
 
 LABELS = Path("data/labeled_event_actions_aug.csv")
-MODEL  = Path("models/test_action_clf.pkl")
+MODEL = Path("models/test_action_clf.pkl")
 
 
 def test_end_to_end(tmp_path):

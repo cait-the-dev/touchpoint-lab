@@ -1,6 +1,8 @@
 from pathlib import Path
+
 import pytest
-from src.guardrail_model import train_guardrail, predict_cooldown
+
+from src.guardrail_model import predict_cooldown, train_guardrail
 
 CSV = Path("data/raw_events.csv")
 

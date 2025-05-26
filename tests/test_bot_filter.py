@@ -1,5 +1,6 @@
 from src.bot_filter import is_bot
 
+
 def test_bot_rules():
     assert not is_bot(3, 2, "alice@gmail.com")
     assert not is_bot(55, 10, "bob@yahoo.com")

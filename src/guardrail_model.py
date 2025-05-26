@@ -10,6 +10,7 @@ import pandas as pd
 from sksurv.ensemble import RandomSurvivalForest
 from sksurv.metrics import concordance_index_censored
 from sksurv.util import Surv
+
 from bot_filter import is_bot
 
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -82,7 +83,7 @@ def _feature_aggregate(df: pd.DataFrame, censor_ts: pd.Timestamp) -> pd.DataFram
                     "is_bot": is_bot(
                         open_count=int(g["is_open"].sum()),
                         click_count=int(g["is_click"].sum()),
-                        email=""
+                        email="",
                     ),
                 }
             )
@@ -100,7 +101,9 @@ _TIMESTAMP_ALIASES = {"event_time", "timestamp", "time", "ts"}
 def _read_events(csv_path: Path) -> pd.DataFrame:
     df = pd.read_csv(csv_path)
     if "event_ts" not in df.columns:
-        alias = next((c for c in df.columns if c.lower() in _TIMESTAMP_ALIASES), None)
+        alias = next(
+            (c for c in df.columns if c.lower() in _TIMESTAMP_ALIASES), None
+        )
         if alias is None:
             raise KeyError(
                 "CSV must contain 'event_ts' or an alias "
@@ -124,9 +127,17 @@ def train_guardrail(csv_path: Path, model_out: Path) -> None:
     df = load_training_frame(csv_path)
 
     X = df[
-        ["n_events_24h", "pct_brand_actions", "days_since_last_event", "opens_last30d", "is_bot"]
+        [
+            "n_events_24h",
+            "pct_brand_actions",
+            "days_since_last_event",
+            "opens_last30d",
+            "is_bot",
+        ]
     ].to_numpy()
-    y = Surv.from_arrays(event=df["event"].to_numpy(), time=df["duration"].to_numpy())
+    y = Surv.from_arrays(
+        event=df["event"].to_numpy(), time=df["duration"].to_numpy()
+    )
 
     rsf = RandomSurvivalForest(
         n_estimators=500,
@@ -137,9 +148,7 @@ def train_guardrail(csv_path: Path, model_out: Path) -> None:
         random_state=42,
     ).fit(X, y)
 
-    c_idx, *_ = concordance_index_censored(
-        y["event"], y["time"], -rsf.predict(X)
-    )
+    c_idx, *_ = concordance_index_censored(y["event"], y["time"], -rsf.predict(X))
     print(f"Training concordance-index ≈ {c_idx:0.3f}")
 
     model_out.parent.mkdir(parents=True, exist_ok=True)
@@ -155,6 +164,10 @@ def _risk_to_cooldown(risk7: float, thresh: float = 0.02) -> int:
 
 def predict_cooldown(model_pkl: Path, **features) -> int:
     rsf: RandomSurvivalForest = joblib.load(model_pkl)
+
+    if features.get("is_bot", 0):
+        return 30
+
     order = [
         "n_events_24h",
         "pct_brand_actions",
