@@ -17,3 +17,8 @@ jupyterlab>=4.0
 pyarrow>=15,<16
 fastparquet>=2024.2,<2025.0
 pytest>=8.0
+sentence-transformers
+fastapi>=0.111
+uvicorn[standard]>=0.29
+pydantic>=2.6
+pre-commit

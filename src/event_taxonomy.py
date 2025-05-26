@@ -1,21 +1,25 @@
 import argparse
-from pathlib import Path
-from functools import lru_cache
 import sys
-import numpy as np
-import pandas as pd
+from functools import lru_cache
+from pathlib import Path
+
+import fasttext
 import hdbscan
 import lightgbm as lgb
+import numpy as np
+import pandas as pd
 import shap
-import fasttext
 
 ROOT = Path(__file__).resolve().parents[1]
 MODEL_PATH = ROOT / "models" / "cc.en.300.bin"
 
 if not MODEL_PATH.exists():
-    sys.exit(f"FastText model missing at {MODEL_PATH}.  See README for download cmd.")
+    sys.exit(
+        f"FastText model missing at {MODEL_PATH}.  See README for download cmd."
+    )
 
 _ft_model = fasttext.load_model(str(MODEL_PATH))
+
 
 @lru_cache(maxsize=None)
 def _sent_vec(text: str) -> np.ndarray:
@@ -23,12 +27,12 @@ def _sent_vec(text: str) -> np.ndarray:
 
 
 def load_events(csv_path: Path) -> pd.DataFrame:
-    df = (
-        pd.read_csv(csv_path, parse_dates=["event_ts"])
-          .assign(event_name=lambda d: d["event_name"].str.strip())
+    df = pd.read_csv(csv_path, parse_dates=["event_ts"]).assign(
+        event_name=lambda d: d["event_name"].str.strip()
     )
-    assert {"profile_id", "event_ts", "event_name", "purchased_7d"}.issubset(df), \
-        "Missing required columns"
+    assert {"profile_id", "event_ts", "event_name", "purchased_7d"}.issubset(
+        df
+    ), "Missing required columns"
     return df
 
 
@@ -37,9 +41,7 @@ def canonicalise(df: pd.DataFrame) -> pd.DataFrame:
     df["vec"] = list(vecs)
 
     clusterer = hdbscan.HDBSCAN(
-        metric="euclidean",
-        min_cluster_size=5,
-        min_samples=2
+        metric="euclidean", min_cluster_size=5, min_samples=2
     ).fit(vecs)
 
     labels = clusterer.labels_
@@ -49,8 +51,8 @@ def canonicalise(df: pd.DataFrame) -> pd.DataFrame:
     df["_tmp"] = 1
     alias = (
         df.groupby("canonical_event")[["event_name", "_tmp"]]
-          .apply(lambda g: g["event_name"].mode().iloc[0])
-          .rename("canonical_alias")
+        .apply(lambda g: g["event_name"].mode().iloc[0])
+        .rename("canonical_alias")
     )
     df = df.join(alias, on="canonical_event")
     return df
@@ -59,6 +61,7 @@ def canonicalise(df: pd.DataFrame) -> pd.DataFrame:
 @lru_cache(maxsize=1)
 def _load_action_clf():
     from joblib import load
+
     model_path = Path(__file__).parents[1] / "models" / "event_action_clf.pkl"
     if not model_path.exists():
         raise FileNotFoundError(
@@ -66,6 +69,7 @@ def _load_action_clf():
             "`python -m src.action_classifier train ...` first."
         )
     return load(model_path)
+
 
 def is_brand(text: str) -> bool:
     clf = _load_action_clf()
@@ -75,16 +79,14 @@ def is_brand(text: str) -> bool:
 def build_feature_matrix(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
     df = df.sort_values(["profile_id", "event_ts"])
 
-    df["n_events_24h"] = (
-        df.groupby("profile_id")["event_ts"]
-          .transform(lambda s: s.diff().dt.total_seconds().fillna(0).lt(86_400).cumsum())
+    df["n_events_24h"] = df.groupby("profile_id")["event_ts"].transform(
+        lambda s: s.diff().dt.total_seconds().fillna(0).lt(86_400).cumsum()
     )
 
     df["is_brand_action"] = df["event_name"].apply(is_brand).astype(int)
 
-    X = (
-        pd.get_dummies(df["canonical_event"].astype(str), prefix="ev")
-          .join(df[["n_events_24h", "is_brand_action"]])
+    X = pd.get_dummies(df["canonical_event"].astype(str), prefix="ev").join(
+        df[["n_events_24h", "is_brand_action"]]
     )
     y = df["purchased_7d"].astype(int)
     return X, y
@@ -111,18 +113,18 @@ def train_value_model(X: pd.DataFrame, y: pd.Series):
         valid_names=["train"],
     )
 
-    explainer   = shap.TreeExplainer(model)
+    explainer = shap.TreeExplainer(model)
     shap_values = explainer.shap_values(X, check_additivity=False)
 
     shap_df = (
-        pd.DataFrame({
-            "feature": X.columns,
-            "mean_abs_shap": np.abs(shap_values).mean(axis=0)
-        })
+        pd.DataFrame(
+            {"feature": X.columns, "mean_abs_shap": np.abs(shap_values).mean(axis=0)}
+        )
         .sort_values("mean_abs_shap", ascending=False)
         .head(15)
     )
     return model, shap_df
+
 
 def _cli(args=None):
     p = argparse.ArgumentParser()
@@ -139,11 +141,13 @@ def _cli(args=None):
     out.parent.mkdir(parents=True, exist_ok=True)
     df.to_parquet(out, index=False)
 
-    alias_map = {f"ev_{cid}": alias
-                 for cid, alias in df.drop_duplicates("canonical_event")
-                                       .set_index("canonical_event")
-                                       ["canonical_alias"].items()}
-    
+    alias_map = {
+        f"ev_{cid}": alias
+        for cid, alias in df.drop_duplicates("canonical_event")
+        .set_index("canonical_event")["canonical_alias"]
+        .items()
+    }
+
     def rename(f):
         if f.startswith("ev_"):
             return alias_map.get(f, f)
@@ -152,7 +156,7 @@ def _cli(args=None):
         if f == "is_brand_action":
             return "is_brand_action (1 = brand)"
         return f
-    
+
     shap_top["feature"] = shap_top["feature"].map(rename)
     print("\nTop predictors (mean |SHAP|)\n")
     print(shap_top.to_markdown(index=False, floatfmt=".4f"))

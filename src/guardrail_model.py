@@ -11,6 +11,8 @@ from sksurv.ensemble import RandomSurvivalForest
 from sksurv.metrics import concordance_index_censored
 from sksurv.util import Surv
 
+from bot_filter import is_bot
+
 warnings.filterwarnings("ignore", category=UserWarning)
 
 UNSUB_NAMES = {
@@ -66,6 +68,7 @@ def _opens_last30(group: pd.DataFrame, ref_ts: pd.Timestamp) -> int:
 
 def _feature_aggregate(df: pd.DataFrame, censor_ts: pd.Timestamp) -> pd.DataFrame:
     df["is_open"] = df["event_name"].str.contains(OPEN_RE, case=False, regex=True)
+    df["is_click"] = df["event_name"].str.contains("click", case=False, regex=True)
     thirty_cut = censor_ts - pd.Timedelta(days=30)
 
     feat = (
@@ -77,6 +80,11 @@ def _feature_aggregate(df: pd.DataFrame, censor_ts: pd.Timestamp) -> pd.DataFram
                     "pct_brand_actions": g["event_name"].isin(UNSUB_NAMES).mean(),
                     "days_since_last_event": (censor_ts - g["event_ts"].max()).days,
                     "opens_last30d": _opens_last30(g, ref_ts=thirty_cut),
+                    "is_bot": is_bot(
+                        open_count=int(g["is_open"].sum()),
+                        click_count=int(g["is_click"].sum()),
+                        email="",
+                    ),
                 }
             )
         )
@@ -93,7 +101,9 @@ _TIMESTAMP_ALIASES = {"event_time", "timestamp", "time", "ts"}
 def _read_events(csv_path: Path) -> pd.DataFrame:
     df = pd.read_csv(csv_path)
     if "event_ts" not in df.columns:
-        alias = next((c for c in df.columns if c.lower() in _TIMESTAMP_ALIASES), None)
+        alias = next(
+            (c for c in df.columns if c.lower() in _TIMESTAMP_ALIASES), None
+        )
         if alias is None:
             raise KeyError(
                 "CSV must contain 'event_ts' or an alias "
@@ -117,9 +127,17 @@ def train_guardrail(csv_path: Path, model_out: Path) -> None:
     df = load_training_frame(csv_path)
 
     X = df[
-        ["n_events_24h", "pct_brand_actions", "days_since_last_event", "opens_last30d"]
+        [
+            "n_events_24h",
+            "pct_brand_actions",
+            "days_since_last_event",
+            "opens_last30d",
+            "is_bot",
+        ]
     ].to_numpy()
-    y = Surv.from_arrays(event=df["event"].to_numpy(), time=df["duration"].to_numpy())
+    y = Surv.from_arrays(
+        event=df["event"].to_numpy(), time=df["duration"].to_numpy()
+    )
 
     rsf = RandomSurvivalForest(
         n_estimators=500,
@@ -130,9 +148,7 @@ def train_guardrail(csv_path: Path, model_out: Path) -> None:
         random_state=42,
     ).fit(X, y)
 
-    c_idx, *_ = concordance_index_censored(
-        y["event"], y["time"], -rsf.predict(X)
-    )
+    c_idx, *_ = concordance_index_censored(y["event"], y["time"], -rsf.predict(X))
     print(f"Training concordance-index ≈ {c_idx:0.3f}")
 
     model_out.parent.mkdir(parents=True, exist_ok=True)
@@ -148,11 +164,16 @@ def _risk_to_cooldown(risk7: float, thresh: float = 0.02) -> int:
 
 def predict_cooldown(model_pkl: Path, **features) -> int:
     rsf: RandomSurvivalForest = joblib.load(model_pkl)
+
+    if features.get("is_bot", 0):
+        return 30
+
     order = [
         "n_events_24h",
         "pct_brand_actions",
         "days_since_last_event",
         "opens_last30d",
+        "is_bot",
     ]
     X = np.array([[features.get(k, 0.0) for k in order]], dtype=float)
     sf = rsf.predict_survival_function(X, return_array=True)[0]
@@ -174,6 +195,7 @@ def _cli() -> None:
     pr.add_argument("--pct_brand_action", type=float, default=0.1)
     pr.add_argument("--days_since_last_event", type=int, default=3)
     pr.add_argument("--opens_last30d", type=int, default=1)
+    pr.add_argument("--is_bot", type=int, choices=[0, 1], default=0)
 
     ns = ap.parse_args()
     if ns.cmd == "train":
@@ -185,6 +207,7 @@ def _cli() -> None:
             pct_brand_actions=ns.pct_brand_action,
             days_since_last_event=ns.days_since_last_event,
             opens_last30d=ns.opens_last30d,
+            is_bot=ns.is_bot,
         )
         print(f"Cool-down recommendation: {cd} days")
 

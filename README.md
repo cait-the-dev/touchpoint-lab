@@ -79,6 +79,32 @@ make docker-test       # runs pytest inside the container
 
 ---
 
+## 🌐  Demo API Endpoints  (FastAPI, runs on port **8080**)
+
+| Route | Method | Query / Body | Purpose |
+|-------|--------|--------------|---------|
+| `/sms/recommendations` | **GET** | `limit` *(int, 1-1000)* | Returns a JSON list of `profile_id`s whose modelled SMS-uplift is **> 5 pp**. |
+| `/bot/check` | **POST** | `{ "email": "user@example.com", "opens": 10, "clicks": 5 }` | Heuristic bot detector → `{"is_bot": true/false, "reason": "…"}.` |
+
+### Quick local run
+
+```bash
+uvicorn src.api_stub:app --reload --port 8080 &   # start server
+
+# Top-5 SMS candidates
+curl -s 'http://localhost:8080/sms/recommendations?limit=5'
+
+# Check a temp-mail address
+curl -s -X POST http://localhost:8080/bot/check \
+     -H 'Content-Type: application/json' \
+     -d '{"email":"foo@tempmail.com","opens":3,"clicks":1}'
+```
+Both endpoints are included in the Docker image, so you can also:
+```bash
+docker run -p 8080:8080 touchpoint-lab:latest
+```
+and hit the same URLs.
+
 ## 🧹  Code Quality
 
 ```bash

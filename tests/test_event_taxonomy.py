@@ -1,10 +1,7 @@
-from src.event_taxonomy import (
-    load_events,
-    canonicalise,
-    build_feature_matrix,
-)
+from src.event_taxonomy import build_feature_matrix, canonicalise, load_events
 
 CSV = "data/raw_events.csv"
+
 
 def test_pipeline_smoke():
     df = load_events(CSV)
